@@ -7,7 +7,7 @@ Photoroom API Paraméterek Tesztelése
 Ez a szkript bemutatja a Photoroom API különböző paramétereit és azok hatását.
 Egy képet küld az API-nak különböző beállításokkal, és elmenti az eredményeket.
 
-A hivatalos API dokumentáció alapján: https://www.photoroom.com/api/docs/reference/b0fb6beb9cd7e-photoroom-api
+A hivatalos API dokumentáció alapján: https://docs.photoroom.com/image-editing-api-plus-plan
 """
 
 import os
@@ -36,17 +36,22 @@ def parse_args():
     parser.add_argument('--output-dir', required=True, help='A kimeneti képek mappája')
     parser.add_argument('--use-live', action='store_true', help='Live API használata (alapértelmezett: sandbox)')
     parser.add_argument('--debug', action='store_true', help='Debug mód bekapcsolása (részletes információk)')
-    parser.add_argument('--param-set', type=int, help='Csak egy adott paraméter-készlet futtatása (1-20)')
+    parser.add_argument('--param-set', type=int, help='Csak egy adott paraméter-készlet futtatása (1-35)')
+    parser.add_argument('--use-plus', action='store_true', help='Plus API használata (v2 API)')
+    parser.add_argument('--bg-image', help='Háttérkép elérési útja a bg_image paraméterhez')
     return parser.parse_args()
 
-def process_image_with_params(image_path, output_path, api_key, params, debug=False):
+def process_image_with_params(image_path, output_path, api_key, params, debug=False, use_plus=False, bg_image_path=None):
     """
     Feldolgozza a képet a Photoroom API-val a megadott paraméterekkel
     """
     logger.info(f"Kép feldolgozása: {image_path} - Paraméterek: {params}")
     
-    # API végpont
-    url = "https://sdk.photoroom.com/v1/segment"
+    # API végpont kiválasztása (v1 vagy v2)
+    if use_plus:
+        url = "https://api.photoroom.com/v2/edit"
+    else:
+        url = "https://sdk.photoroom.com/v1/segment"
     
     # Fájl előkészítése
     try:
@@ -59,6 +64,12 @@ def process_image_with_params(image_path, output_path, api_key, params, debug=Fa
         files = {
             'image_file': (os.path.basename(image_path), open(image_path, 'rb'), 'image/jpeg')
         }
+        
+        # Ha van háttérkép, azt is hozzáadjuk
+        if bg_image_path and os.path.isfile(bg_image_path):
+            files['bg_image'] = (os.path.basename(bg_image_path), open(bg_image_path, 'rb'), 'image/jpeg')
+            if debug:
+                logger.debug(f"Háttérkép hozzáadva: {bg_image_path}")
         
         # Fejlécek beállítása
         headers = {
@@ -136,9 +147,11 @@ def process_image_with_params(image_path, output_path, api_key, params, debug=Fa
             logger.debug(f"Kivétel részletei: {traceback.format_exc()}")
         return False
     finally:
-        # Bezárjuk a fájlt, ha sikerült megnyitni
-        if 'files' in locals() and 'image_file' in files and hasattr(files['image_file'][1], 'close'):
-            files['image_file'][1].close()
+        # Bezárjuk a fájlokat, ha sikerült megnyitni
+        if 'files' in locals():
+            for key in files:
+                if hasattr(files[key][1], 'close'):
+                    files[key][1].close()
 
 def main():
     args = parse_args()
@@ -164,11 +177,17 @@ def main():
     api_key = LIVE_API_KEY if args.use_live else SANDBOX_API_KEY
     logger.info(f"Használt API kulcs: {'Live' if args.use_live else 'Sandbox'}")
     
+    # API verzió kiválasztása
+    if args.use_plus:
+        logger.info("Plus API (v2) használata")
+    else:
+        logger.info("Alap API (v1) használata")
+    
     # Fájlnév előkészítése
     filename = Path(args.image).stem
     
     # Különböző paraméter kombinációk tesztelése
-    # A hivatalos API dokumentáció alapján: https://www.photoroom.com/api/docs/reference/b0fb6beb9cd7e-photoroom-api
+    # A hivatalos API dokumentáció alapján: https://docs.photoroom.com/image-editing-api-plus-plan
     param_sets = [
         # 1. Alap háttér eltávolítás - átlátszó háttér
         {
@@ -391,6 +410,195 @@ def main():
                 'quality': '90'
             },
             'description': 'Shopify-ra optimalizált beállítások'
+        },
+        
+        # 12. Különböző minőségi szintek
+        {
+            'name': '21_medium_quality',
+            'params': {
+                'bg_color': '#EEEEE5',
+                'shadow': 'soft',
+                'position': 'center',
+                'scale': '13',
+                'size': 'portrait',
+                'crop': 'true',
+                'format': 'webp',
+                'quality': '75'
+            },
+            'description': 'Közepes minőség (75%)'
+        },
+        
+        # 13. Különböző méretezési értékek
+        {
+            'name': '22_scale_50percent',
+            'params': {
+                'bg_color': '#EEEEE5',
+                'shadow': 'soft',
+                'position': 'center',
+                'scale': '50',
+                'format': 'webp'
+            },
+            'description': '50%-os méretezés'
+        },
+        
+        # 14. Háttér elmosás különböző értékekkel
+        {
+            'name': '23_bg_blur_20',
+            'params': {
+                'bg_blur': '20',
+                'format': 'webp'
+            },
+            'description': 'Háttér elmosás (20 pixel)'
+        },
+        
+        # 15. Kombinált beállítások
+        {
+            'name': '24_combined_params',
+            'params': {
+                'bg_color': '#EEEEE5',
+                'shadow': 'soft',
+                'position': 'center',
+                'scale': '25',
+                'size': 'portrait',
+                'crop': 'true',
+                'format': 'webp',
+                'quality': '85'
+            },
+            'description': 'Kombinált paraméterek (25% méret, 85% minőség)'
+        },
+        
+        # 16. Egyedi méretezés más arányokkal
+        {
+            'name': '25_custom_size_wide',
+            'params': {
+                'bg_color': '#EEEEE5',
+                'shadow': 'soft',
+                'position': 'center',
+                'width': '1200',
+                'height': '600',
+                'format': 'webp'
+            },
+            'description': 'Egyedi széles méret (1200x600 pixel)'
+        },
+        
+        # Plus API (v2) specifikus paraméterek
+        # 17. HD háttér eltávolítás
+        {
+            'name': '26_hd_removal',
+            'params': {
+                'hd': 'true',
+                'format': 'webp'
+            },
+            'description': 'HD háttér eltávolítás',
+            'plus_only': True
+        },
+        
+        # 18. Egyedi DPI beállítás
+        {
+            'name': '27_custom_dpi',
+            'params': {
+                'bg_color': '#EEEEE5',
+                'dpi': '300',
+                'format': 'webp'
+            },
+            'description': 'Egyedi DPI beállítás (300)',
+            'plus_only': True
+        },
+        
+        # 19. AI generált háttér
+        {
+            'name': '28_ai_background_photo',
+            'params': {
+                'bg_prompt': 'A beautiful beach at sunset',
+                'bg_style': 'photographic',
+                'format': 'webp'
+            },
+            'description': 'AI generált fotorealisztikus háttér',
+            'plus_only': True
+        },
+        
+        # 20. AI generált háttér - flat color
+        {
+            'name': '29_ai_background_flat',
+            'params': {
+                'bg_prompt': 'A simple blue background',
+                'bg_style': 'flat_color',
+                'format': 'webp'
+            },
+            'description': 'AI generált egyszínű háttér',
+            'plus_only': True
+        },
+        
+        # 21. AI generált háttér - gradient
+        {
+            'name': '30_ai_background_gradient',
+            'params': {
+                'bg_prompt': 'A blue to purple gradient',
+                'bg_style': 'gradient',
+                'format': 'webp'
+            },
+            'description': 'AI generált színátmenetes háttér',
+            'plus_only': True
+        },
+        
+        # 22. AI generált háttér - pattern
+        {
+            'name': '31_ai_background_pattern',
+            'params': {
+                'bg_prompt': 'A geometric pattern with blue and yellow',
+                'bg_style': 'pattern',
+                'format': 'webp'
+            },
+            'description': 'AI generált mintás háttér',
+            'plus_only': True
+        },
+        
+        # 23. AI újravilágítás
+        {
+            'name': '32_relight',
+            'params': {
+                'relight': 'true',
+                'relight_direction': 'left',
+                'relight_strength': 'medium',
+                'format': 'webp'
+            },
+            'description': 'AI újravilágítás (balról, közepes erősség)',
+            'plus_only': True
+        },
+        
+        # 24. Szöveg eltávolítás
+        {
+            'name': '33_remove_text',
+            'params': {
+                'remove_text': 'true',
+                'format': 'webp'
+            },
+            'description': 'Szöveg eltávolítás a képről',
+            'plus_only': True
+        },
+        
+        # 25. Kép kiterjesztés
+        {
+            'name': '34_expand',
+            'params': {
+                'expand': 'true',
+                'expand_factor': '1.5',
+                'format': 'webp'
+            },
+            'description': 'Kép kiterjesztés (1.5x)',
+            'plus_only': True
+        },
+        
+        # 26. AI felskálázás
+        {
+            'name': '35_upscale',
+            'params': {
+                'upscale': 'true',
+                'upscale_factor': '2',
+                'format': 'webp'
+            },
+            'description': 'AI felskálázás (2x)',
+            'plus_only': True
         }
     ]
     
@@ -407,9 +615,16 @@ def main():
     # Paraméterek tesztelése
     success_count = 0
     error_count = 0
+    skipped_count = 0
     start_total_time = time.time()
     
     for i, param_set in enumerate(param_sets):
+        # Ellenőrizzük, hogy a paraméter-készlet csak a Plus API-val használható-e
+        if param_set.get('plus_only', False) and not args.use_plus:
+            logger.warning(f"Paraméter-készlet kihagyva (csak Plus API): {param_set['name']} - {param_set['description']}")
+            skipped_count += 1
+            continue
+        
         if args.debug:
             logger.debug(f"Paraméter-készlet {i+1}/{len(param_sets)}: {param_set['name']} - {param_set['description']}")
         else:
@@ -425,7 +640,15 @@ def main():
         
         # Feldolgozás időmérése
         start_time = time.time()
-        result = process_image_with_params(args.image, output_path, api_key, param_set['params'], args.debug)
+        result = process_image_with_params(
+            args.image, 
+            output_path, 
+            api_key, 
+            param_set['params'], 
+            args.debug, 
+            args.use_plus and param_set.get('plus_only', False),
+            args.bg_image if 'bg_image' in param_set['params'] else None
+        )
         process_time = time.time() - start_time
         
         if args.debug:
@@ -437,14 +660,19 @@ def main():
             error_count += 1
     
     total_time = time.time() - start_total_time
-    logger.info(f"Minden paraméter teszt befejezve. Sikeres: {success_count}, Hibás: {error_count}")
+    logger.info(f"Minden paraméter teszt befejezve. Sikeres: {success_count}, Hibás: {error_count}, Kihagyott: {skipped_count}")
     logger.info(f"Teljes futási idő: {total_time:.2f} másodperc")
     
     if args.debug:
-        logger.debug(f"Átlagos feldolgozási idő: {total_time/len(param_sets):.2f} másodperc/kép")
+        processed_count = success_count + error_count
+        if processed_count > 0:
+            logger.debug(f"Átlagos feldolgozási idő: {total_time/processed_count:.2f} másodperc/kép")
     
     if error_count > 0 and args.use_live:
         logger.warning("Hibák történtek a feldolgozás során. Próbáld meg a sandbox API-val a --use-live kapcsoló nélkül.")
+    
+    if skipped_count > 0 and not args.use_plus:
+        logger.warning(f"{skipped_count} paraméter-készlet kihagyva, mert csak a Plus API-val használható. Használd a --use-plus kapcsolót a tesztelésükhöz.")
 
 if __name__ == "__main__":
     main() 
