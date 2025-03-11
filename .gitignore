@@ -1,0 +1,29 @@
+# Tiltott mappák
+PhotoRoomKit-Swift/
+api-demo-apps/
+api-code-samples/
+
+# Python cache fájlok
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtuális környezet
+venv/
+env/
+ENV/
+
+# IDE fájlok
+.idea/
+.vscode/
+*.sublime-*
+
+# Rendszerfájlok
+.DS_Store
+Thumbs.db
+
+# Log fájlok
+*.log 
